@@ -113,8 +113,8 @@ private void shareToInstagram(String path, String type) {
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
         StrictMode.setVmPolicy(builder.build());
         
-        // Use specific intent to target the Instagram Feed
-        Intent shareIntent = new Intent("com.instagram.share.ADD_TO_FEED");
+        // Try standard ACTION_SEND with content provider setup
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
         shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
         shareIntent.setType(mediaType);
@@ -130,6 +130,7 @@ private void shareToInstagram(String path, String type) {
         openInstagramInPlayStore();
     }
 }
+
 
 
   @Override
