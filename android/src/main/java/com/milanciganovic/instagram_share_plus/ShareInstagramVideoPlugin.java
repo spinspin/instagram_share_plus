@@ -91,43 +91,46 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
     mContext.startActivity(intent);
   }
 
-  private void shareToInstagram(String path, String type) {
+private void shareToInstagram(String path, String type) {
     String mediaType = "";
     if ("image".equals(type)) {
-      mediaType = "image/jpeg";
+        mediaType = "image/jpeg";
     } else {
-      mediaType = "video/*";
+        mediaType = "video/*";
     }
 
     if (ShareUtils.shouldRequestPermission(path)) {
-      if (!checkPermission()) {
-        requestPermission();
-        return;
-      }
+        if (!checkPermission()) {
+            requestPermission();
+            return;
+        }
     }
 
     File f = new File(path);
     Uri uri = ShareUtils.getUriForFile(mContext, f);
 
     if (instagramInstalled()) {
-      StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
-      StrictMode.setVmPolicy(builder.build());
-      Intent shareIntent = new Intent();
-      shareIntent.setAction(Intent.ACTION_SEND);
-      shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
-      shareIntent.putExtra(Intent.EXTRA_STREAM, "TEST");
-      shareIntent.setType(mediaType);
-      shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-      shareIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-      try {
-        mContext.startActivity(shareIntent);
-      } catch (ActivityNotFoundException ex) {
-        openInstagramInPlayStore();
-      }
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
+        
+        // Use specific intent to target the Instagram Feed
+        Intent shareIntent = new Intent("com.instagram.share.ADD_TO_FEED");
+        shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
+        shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+        shareIntent.setType(mediaType);
+        shareIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        
+        try {
+            mContext.startActivity(shareIntent);
+        } catch (ActivityNotFoundException ex) {
+            openInstagramInPlayStore();
+        }
     } else {
-      openInstagramInPlayStore();
+        openInstagramInPlayStore();
     }
-  }
+}
+
 
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
