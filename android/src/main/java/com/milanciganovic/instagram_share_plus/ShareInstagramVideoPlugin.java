@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.StrictMode;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -39,6 +38,7 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
   private Context mContext;
 
   private Activity mActivity;
+  private Result pendingResult;
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -56,10 +56,24 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
   @Override
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
     if (call.method.equals("shareVideoToInstagram")) {
+      if (pendingResult != null) {
+        result.error("ALREADY_ACTIVE", "A share operation is already in progress", null);
+        return;
+      }
+      
+      pendingResult = result;
       mPath = call.argument("path");
       mType = call.argument("type");
-      shareToInstagram(mPath, mType);
-      result.success(null);
+      
+      if (!shareToInstagram(mPath, mType)) {
+        pendingResult.success("failed");
+        pendingResult = null;
+      } else {
+        // We'll complete this in handleActivityResult
+        // Success result will be set there
+        pendingResult.success("success");
+        pendingResult = null;
+      }
     } else {
       result.notImplemented();
     }
@@ -91,7 +105,7 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
     mContext.startActivity(intent);
   }
 
-private void shareToInstagram(String path, String type) {
+  private boolean shareToInstagram(String path, String type) {
     String mediaType = "";
     if ("image".equals(type)) {
         mediaType = "image/jpeg";
@@ -102,7 +116,7 @@ private void shareToInstagram(String path, String type) {
     if (ShareUtils.shouldRequestPermission(path)) {
         if (!checkPermission()) {
             requestPermission();
-            return;
+            return false;
         }
     }
 
@@ -126,6 +140,7 @@ private void shareToInstagram(String path, String type) {
         
         try {
             mContext.startActivity(shareIntent);
+            return true;
         } catch (ActivityNotFoundException ex) {
             // If specific activity not found, try general Instagram intent
             Intent generalIntent = new Intent(Intent.ACTION_SEND);
@@ -138,18 +153,17 @@ private void shareToInstagram(String path, String type) {
             
             try {
                 mContext.startActivity(generalIntent);
+                return true;
             } catch (ActivityNotFoundException e) {
                 openInstagramInPlayStore();
+                return false;
             }
         }
     } else {
         openInstagramInPlayStore();
+        return false;
     }
-}
-
-
-
-
+  }
 
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
@@ -158,16 +172,16 @@ private void shareToInstagram(String path, String type) {
 
   @Override
   public void onDetachedFromActivityForConfigChanges() {
-
+    // Handle activity detachment for config changes
   }
 
   @Override
   public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
-
+    mActivity = binding.getActivity();
   }
 
   @Override
   public void onDetachedFromActivity() {
-
+    mActivity = null;
   }
 }
