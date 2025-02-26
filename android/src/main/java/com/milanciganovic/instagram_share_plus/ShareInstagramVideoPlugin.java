@@ -113,23 +113,36 @@ private void shareToInstagram(String path, String type) {
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
         StrictMode.setVmPolicy(builder.build());
         
-        // Try standard ACTION_SEND with content provider setup
+        // Create explicit intent for Instagram's main app, not Direct
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
-        shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
+        shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME); // com.instagram.android
+        // Explicitly avoid Direct
+        shareIntent.setClassName("com.instagram.android", "com.instagram.share.handleractivity.ShareHandlerActivity");
         shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
         shareIntent.setType(mediaType);
-        shareIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         
         try {
             mContext.startActivity(shareIntent);
         } catch (ActivityNotFoundException ex) {
-            openInstagramInPlayStore();
+            // If specific activity not found, try general Instagram intent
+            Intent generalIntent = new Intent(Intent.ACTION_SEND);
+            generalIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
+            generalIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            generalIntent.setType(mediaType);
+            generalIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            try {
+                mContext.startActivity(generalIntent);
+            } catch (ActivityNotFoundException e) {
+                openInstagramInPlayStore();
+            }
         }
     } else {
         openInstagramInPlayStore();
     }
 }
+
 
 
 
