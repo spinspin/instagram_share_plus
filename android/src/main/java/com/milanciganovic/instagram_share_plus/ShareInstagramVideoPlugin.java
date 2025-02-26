@@ -121,6 +121,8 @@ private void shareToInstagram(String path, String type) {
         shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
         shareIntent.setType(mediaType);
         shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // Add FLAG_ACTIVITY_NEW_TASK flag
+        shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         
         try {
             mContext.startActivity(shareIntent);
@@ -131,6 +133,8 @@ private void shareToInstagram(String path, String type) {
             generalIntent.putExtra(Intent.EXTRA_STREAM, uri);
             generalIntent.setType(mediaType);
             generalIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // Add FLAG_ACTIVITY_NEW_TASK flag here too
+            generalIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
             try {
                 mContext.startActivity(generalIntent);
@@ -142,6 +146,7 @@ private void shareToInstagram(String path, String type) {
         openInstagramInPlayStore();
     }
 }
+
 
 
 
