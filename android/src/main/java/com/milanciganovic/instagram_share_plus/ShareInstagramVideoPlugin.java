@@ -65,6 +65,14 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
       mPath = call.argument("path");
       mType = call.argument("type");
       
+      // Check if Instagram is installed first
+      if (!instagramInstalled()) {
+        // Return a specific response instead of opening Play Store
+        pendingResult.success("instagram_not_installed");
+        pendingResult = null;
+        return;
+      }
+      
       if (!shareToInstagram(mPath, mType)) {
         pendingResult.success("failed");
         pendingResult = null;
@@ -98,13 +106,6 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
     }
   }
 
-  private void openInstagramInPlayStore() {
-    Intent intent = new Intent(Intent.ACTION_VIEW);
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    intent.setData(Uri.parse("market://details?id=" + INSTAGRAM_PACKAGE_NAME));
-    mContext.startActivity(intent);
-  }
-
   private boolean shareToInstagram(String path, String type) {
     String mediaType = "";
     if ("image".equals(type)) {
@@ -123,45 +124,40 @@ public class ShareInstagramVideoPlugin implements FlutterPlugin, MethodCallHandl
     File f = new File(path);
     Uri uri = ShareUtils.getUriForFile(mContext, f);
 
-    if (instagramInstalled()) {
-        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
-        StrictMode.setVmPolicy(builder.build());
-        
-        // Create explicit intent for Instagram's main app, not Direct
-        Intent shareIntent = new Intent(Intent.ACTION_SEND);
-        shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME); // com.instagram.android
-        // Explicitly avoid Direct
-        shareIntent.setClassName("com.instagram.android", "com.instagram.share.handleractivity.ShareHandlerActivity");
-        shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-        shareIntent.setType(mediaType);
-        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        // Add FLAG_ACTIVITY_NEW_TASK flag
-        shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+    StrictMode.setVmPolicy(builder.build());
+    
+    // Create explicit intent for Instagram's main app, not Direct
+    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    shareIntent.setPackage(INSTAGRAM_PACKAGE_NAME); // com.instagram.android
+    // Explicitly avoid Direct
+    shareIntent.setClassName("com.instagram.android", "com.instagram.share.handleractivity.ShareHandlerActivity");
+    shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+    shareIntent.setType(mediaType);
+    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    // Add FLAG_ACTIVITY_NEW_TASK flag
+    shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    
+    try {
+        mContext.startActivity(shareIntent);
+        return true;
+    } catch (ActivityNotFoundException ex) {
+        // If specific activity not found, try general Instagram intent
+        Intent generalIntent = new Intent(Intent.ACTION_SEND);
+        generalIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
+        generalIntent.putExtra(Intent.EXTRA_STREAM, uri);
+        generalIntent.setType(mediaType);
+        generalIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // Add FLAG_ACTIVITY_NEW_TASK flag here too
+        generalIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         
         try {
-            mContext.startActivity(shareIntent);
+            mContext.startActivity(generalIntent);
             return true;
-        } catch (ActivityNotFoundException ex) {
-            // If specific activity not found, try general Instagram intent
-            Intent generalIntent = new Intent(Intent.ACTION_SEND);
-            generalIntent.setPackage(INSTAGRAM_PACKAGE_NAME);
-            generalIntent.putExtra(Intent.EXTRA_STREAM, uri);
-            generalIntent.setType(mediaType);
-            generalIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            // Add FLAG_ACTIVITY_NEW_TASK flag here too
-            generalIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            
-            try {
-                mContext.startActivity(generalIntent);
-                return true;
-            } catch (ActivityNotFoundException e) {
-                openInstagramInPlayStore();
-                return false;
-            }
+        } catch (ActivityNotFoundException e) {
+            // Instead of opening Play Store, we'll just return false
+            return false;
         }
-    } else {
-        openInstagramInPlayStore();
-        return false;
     }
   }
 
