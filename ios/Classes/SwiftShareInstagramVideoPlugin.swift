@@ -18,12 +18,12 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
                 if let localIdentifier = args["localIdentifier"] as? String {
                     // If we already have a localIdentifier, use it directly
                     shareToInstagramWithIdentifier(localIdentifier: localIdentifier, result: result)
-                } else if let filePath = args["filePath"] as? String {
-                    // If we have a file path, first try to find its identifier or save it
+                } else if let filePath = args["path"] as? String {
+                    // If we have a file path from the existing Flutter code
                     shareToInstagramWithFilePath(filePath: filePath, result: result)
                 } else {
                     result(FlutterError(code: "INVALID_ARGUMENT", 
-                                      message: "Missing required parameter 'localIdentifier' or 'filePath'", 
+                                      message: "Missing required parameter 'path'", 
                                       details: nil))
                 }
             } else {
@@ -47,16 +47,12 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
                     if success {
                         result("success")
                     } else {
-                        result(FlutterError(code: "INSTAGRAM_ERROR", 
-                                          message: "Failed to open Instagram", 
-                                          details: nil))
+                        result("failed")
                     }
                 }
             }
         } else {
-            result(FlutterError(code: "INSTAGRAM_NOT_AVAILABLE", 
-                              message: "Instagram is not installed or cannot handle this media", 
-                              details: nil))
+            result("instagram_not_installed")
         }
     }
     
@@ -86,9 +82,7 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
         }) { success, error in
             if !success {
                 DispatchQueue.main.async {
-                    result(FlutterError(code: "SAVE_ERROR", 
-                                      message: "Failed to save media to photo library: \(error?.localizedDescription ?? "Unknown error")", 
-                                      details: nil))
+                    result("failed")
                 }
             }
         }
@@ -102,9 +96,7 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
             // Now we have the actual asset, get its local identifier
             shareToInstagramWithIdentifier(localIdentifier: asset.localIdentifier, result: result)
         } else {
-            result(FlutterError(code: "ASSET_NOT_FOUND", 
-                              message: "Failed to retrieve saved asset", 
-                              details: nil))
+            result("failed")
         }
     }
 }
