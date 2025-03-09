@@ -56,27 +56,47 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
     
     private func saveAndShare(path: String, result: @escaping FlutterResult) {
         let fileURL = URL(fileURLWithPath: path)
-        
-        var assetIdentifier: String?
-        var saveError: Error?
-        
-        let saveOperation = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: fileURL) ??
-                            PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: fileURL)
-        
-        if let placeholder = saveOperation?.placeholderForCreatedAsset {
-            assetIdentifier = placeholder.localIdentifier
-        }
+        var localIdentifier: String?
         
         PHPhotoLibrary.shared().performChanges({
-            // Changes already made above
+            // Create request inside the performChanges block
+            let createAssetRequest: PHAssetChangeRequest
+            let fileExtension = fileURL.pathExtension.lowercased()
+            
+            if fileExtension == "jpg" || fileExtension == "jpeg" || fileExtension == "png" {
+                // It's an image
+                createAssetRequest = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: fileURL)!
+            } else {
+                // It's a video or other media
+                createAssetRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: fileURL)!
+            }
+            
+            // Store the placeholder identifier for later use
+            if let placeholder = createAssetRequest.placeholderForCreatedAsset {
+                localIdentifier = placeholder.localIdentifier
+            }
+            
         }) { success, error in
             DispatchQueue.main.async {
-                if success, let localId = assetIdentifier {
-                    self.openInstagramWithIdentifier(localId: localId, result: result)
+                if success, let localId = localIdentifier {
+                    // Wait a moment for the asset to be fully available
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.fetchAssetAndShare(localId: localId, result: result)
+                    }
                 } else {
                     result("failed")
                 }
             }
+        }
+    }
+    
+    private func fetchAssetAndShare(localId: String, result: @escaping FlutterResult) {
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localId], options: nil)
+        
+        if let asset = fetchResult.firstObject {
+            openInstagramWithIdentifier(localId: asset.localIdentifier, result: result)
+        } else {
+            result("failed")
         }
     }
     
