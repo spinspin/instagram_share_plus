@@ -55,32 +55,19 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
     }
     
     private func checkAssetAndShare(path: String, result: @escaping FlutterResult) {
-        // First, check if we can get a PHAsset from the file URL directly
-        // This is the most reliable way when available
         let fileURL = URL(fileURLWithPath: path)
-        let fileName = fileURL.lastPathComponent
         
         // Get file attributes for potential matching
         let fileAttributes = try? FileManager.default.attributesOfItem(atPath: path)
         let fileCreationDate = fileAttributes?[.creationDate] as? Date
-        let fileSize = (fileAttributes?[.size] as? NSNumber)?.int64Value ?? 0
         
         // Determine media type from extension
         let fileExtension = fileURL.pathExtension.lowercased()
         let isImage = ["jpg", "jpeg", "png", "heic"].contains(fileExtension)
         
-        // Try to find the asset by filename first
-        let fileNameOptions = PHFetchOptions()
-        fileNameOptions.predicate = NSPredicate(format: "filename CONTAINS[c] %@", fileName)
-        let fileNameResult = PHAsset.fetchAssets(with: fileNameOptions)
+        // Skip filename matching as 'filename' isn't a valid predicate property
+        // Instead, go straight to time-based matching which is more reliable for newly taken photos
         
-        if fileNameResult.count > 0, let asset = fileNameResult.firstObject {
-            // We found a matching asset by filename
-            openInstagramWithIdentifier(localId: asset.localIdentifier, result: result)
-            return
-        }
-        
-        // If no match by filename, try by creation date for recent files
         if let fileCreationDate = fileCreationDate {
             let dateOptions = PHFetchOptions()
             // Look for assets created within 5 minutes of this file
@@ -118,35 +105,34 @@ public class SwiftShareInstagramVideoPlugin: NSObject, FlutterPlugin {
             
             if ["jpg", "jpeg", "png", "heic"].contains(fileExtension) {
                 // It's an image
-                guard let request = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: fileURL) else {
-                    DispatchQueue.main.async {
-                        result("failed")
+                if let request = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: fileURL) {
+                    createAssetRequest = request
+                    // Store the placeholder identifier for later use
+                    if let placeholder = createAssetRequest.placeholderForCreatedAsset {
+                        localIdentifier = placeholder.localIdentifier
                     }
-                    return
                 }
-                createAssetRequest = request
             } else {
                 // It's a video or other media
-                guard let request = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: fileURL) else {
-                    DispatchQueue.main.async {
-                        result("failed")
+                if let request = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: fileURL) {
+                    createAssetRequest = request
+                    // Store the placeholder identifier for later use
+                    if let placeholder = createAssetRequest.placeholderForCreatedAsset {
+                        localIdentifier = placeholder.localIdentifier
                     }
-                    return
                 }
-                createAssetRequest = request
             }
             
-            // Store the placeholder identifier for later use
-            if let placeholder = createAssetRequest.placeholderForCreatedAsset {
-                localIdentifier = placeholder.localIdentifier
-            }
-            
-        }) { success, error in
+        }) { [weak self] success, error in
             DispatchQueue.main.async {
-                if success, let localId = localIdentifier {
+                if success, let localId = localIdentifier, let strongSelf = self {
                     // Wait a moment for the asset to be fully available
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.fetchAssetAndShare(localId: localId, result: result)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        if let self = self {
+                            self.fetchAssetAndShare(localId: localId, result: result)
+                        } else {
+                            result("failed")
+                        }
                     }
                 } else {
                     result("failed")
